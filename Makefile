@@ -6,7 +6,7 @@ override CFLAGS += -Wall -Os
 all: $(PROGS)
 
 %: %.c
-	$(CC) $(CFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
 install: $(PROGS)
 	cp -ai $(PROGS) $(PREFIX)/bin
