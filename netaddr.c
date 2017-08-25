@@ -9,6 +9,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
+#include "xstrlcpy.c"
+
 struct netaddr {
 	int type;
 	char addr[16];
@@ -48,7 +50,7 @@ static int filladdr(const char *addr, struct netaddr *na)
 	if (na->type == AF_INET) na->pmax = 32;
 	else if (na->type == AF_INET6) na->pmax = 128;
 
-	strncpy(na->saddr, addr, INET6_ADDRSTRLEN);
+	xstrlcpy(na->saddr, addr, INET6_ADDRSTRLEN);
 
 	s = strchr(na->saddr, '/');
 	if (s && *(s+1)) {

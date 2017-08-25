@@ -17,6 +17,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include "xstrlcpy.c"
+
 #define MAC_ADDRSTRLEN	18
 
 #define ADDR_INVAL	0
@@ -116,7 +118,7 @@ static char *genrndipv6(const char *addr)
 	if (prefix < 0 || prefix > 128) return "\0Invalid IPv6 prefix";
 
 	d = addr;
-	strncpy(tmpaddr, d, s - d - 1);
+	xstrlcpy(tmpaddr, d, s - d);
 	if (inet_pton(AF_INET6, tmpaddr, addr6) != 1) return "\0Invalid IPv6 address";
 
 	if ((128 - prefix) % 8) {
@@ -154,7 +156,7 @@ static char *genrndipv4(const char *addr)
 	if (prefix < 0 || prefix > 32) return "\0Invalid IPv4 prefix";
 
 	d = addr;
-	strncpy(tmpaddr, d, s - d - 1);
+	xstrlcpy(tmpaddr, d, s - d);
 	if (inet_pton(AF_INET, tmpaddr, addr4) != 1) return "\0Invalid IPv4 address";
 
 	if ((32 - prefix) % 8) {
@@ -192,7 +194,7 @@ static char *genrndmac(const char *addr)
 	if (prefix < 0 || prefix > 48) return "\0Invalid MAC address prefix";
 
 	d = addr;
-	strncpy(tmpaddr, d, s - d - 1);
+	xstrlcpy(tmpaddr, d, s - d);
 
 	if (sscanf(tmpaddr, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx%c",
 		&mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5], &i) != 6)
@@ -270,13 +272,13 @@ static char *rndmacbyalias(const char *name)
 		memset(nname, 0, sizeof(nname));
 		s = strchr(nicaliases[i], ' ');
 		if (!s) return "\0Invalid alias";
-		strncpy(nname, nicaliases[i], s-nicaliases[i]);
+		xstrlcpy(nname, nicaliases[i], s-nicaliases[i]);
 		t = nname-1;
 		do {
 			memset(tmp, 0, sizeof(tmp));
 			t++;
 			d = strchr(t, ',');
-			strncpy(tmp, t, d ? d-t : sizeof(tmp)-1);
+			xstrlcpy(tmp, t, d ? d-t : sizeof(tmp));
 			if (strncmp(tmp, name, sizeof(tmp)-1) == 0) {
 				s = strchr(nicaliases[i], ' ');
 				do {
@@ -290,7 +292,7 @@ static char *rndmacbyalias(const char *name)
 					memset(tmp, 0, sizeof(tmp));
 					s++;
 					d = strchr(s, '|');
-					strncpy(tmp, s, d ? d-s : sizeof(tmp)-1); x++;
+					xstrlcpy(tmp, s, d ? d-s : sizeof(tmp)); x++;
 				} while ((s = strchr(s, '|')) && (x < rnd));
 				goto _gen;
 			}

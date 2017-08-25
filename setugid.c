@@ -29,6 +29,8 @@
 #include <libgen.h>
 #include <string.h>
 
+#include "xstrlcpy.c"
+
 extern char **environ;
 
 #define NGIDS 1024
@@ -320,7 +322,7 @@ int main(int argc, char **argv)
 					memset(x, 0, sizeof(x));
 					s++;
 					d = strchr(s, ',');
-					strncpy(x, s, d ? d-s : sizeof(x)-1);
+					xstrlcpy(x, s, d ? d-s : sizeof(x));
 
 					if (c == 'S' && x[0] == '-') {
 						sg = gidbyname(x+1);

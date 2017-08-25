@@ -1,5 +1,5 @@
 PREFIX = /usr
-SRCS = $(wildcard *.c)
+SRCS = $(filter-out xstrlcpy.c, $(wildcard *.c))
 PROGS = $(SRCS:.c=)
 override CFLAGS += -Wall -Os
 
