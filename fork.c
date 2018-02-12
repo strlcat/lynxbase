@@ -18,26 +18,28 @@
 #include <string.h>
 
 /*
- * lhexecvp: return immediately after call.
+ * dexecvp: return immediately after call.
  * The same as execvp().
  */
-static int lhexecvp(const char *file, char *const argv[])
+static int dexecvp(const char *file, char *const argv[], pid_t *pid)
 {
+	pid_t idp;
 	int pfd[2];
+	int x;
 
-	if (!*file) return -1;
+	if (!file || !*file) return -1;
 
 	if (pipe(pfd) != 0) return -1;
 	fcntl(pfd[0], F_SETFD, fcntl(pfd[0], F_GETFD) | FD_CLOEXEC);
 	fcntl(pfd[1], F_SETFD, fcntl(pfd[1], F_GETFD) | FD_CLOEXEC);
 
-	switch (fork()) {
+	idp = fork();
+	switch (idp) {
 	case -1:
 		goto _fail;
 		break;
 	case 0:
 		if (setsid() < 0) goto _fail;
-
 		close(0);
 		close(1);
 		close(2);
@@ -45,27 +47,23 @@ static int lhexecvp(const char *file, char *const argv[])
 		open("/dev/null", O_RDWR);
 		open("/dev/null", O_RDWR);
 		close(pfd[0]);
-
-		execvp(file, argv);
-
-		write(pfd[1], &errno, sizeof(errno));
+		if (execvp(file, argv) == -1)
+			write(pfd[1], &errno, sizeof(errno));
 		close(pfd[1]);
 		exit(127);
 
 		break;
-	default: {
-		int x = 0;
-
+	default:
+		x = 0;
+		if (pid) *pid = idp;
 		close(pfd[1]);
 		while (read(pfd[0], &x, sizeof(errno)) != -1)
 			if (errno != EAGAIN && errno != EINTR) break;
 		close(pfd[0]);
-
 		if (x) {
 			errno = x;
 			return -1;
 		}
-	}
 		break;
 	}
 
@@ -80,10 +78,19 @@ _fail:
 
 int main(int argc, char **argv)
 {
+	pid_t runner;
+	int tellpid = 0;
+
 	if (argc < 2) exit(0);
 
+	if (!strcmp(*(argv+1), "-v")) {
+		argc--;
+		argv++;
+		tellpid = 1;
+	}
+
 	setenv("_", argv[1], 1);
-	if (lhexecvp(argv[1], argv+1) != 0) {
+	if (dexecvp(argv[1], argv+1, tellpid ? &runner : NULL) != 0) {
 		if (errno == ENOENT) {
 			fprintf(stderr, "%s: not found\n", argv[1]);
 			exit(127);
@@ -93,6 +100,8 @@ int main(int argc, char **argv)
 			exit(126);
 		}
 	}
+
+	if (tellpid) printf("%ld\n", (long)runner);
 
 	return 0;
 }
