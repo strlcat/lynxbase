@@ -26,11 +26,12 @@ static size_t respawn_tries = TRIES_INFINITE;
 
 static void usage(void)
 {
-	printf("usage: respawn [-t TTY] [-r timespec] [-n tries] [-fv[v]] cmdline ...\n");
+	printf("usage: respawn [-T TTY] [-t timespec] [-n tries] [-e exitcode] [-fv[v]] cmdline ...\n");
 	printf("Run cmdline and watch it. When process exits, restart it.\n\n");
-	printf("  -t TTY: open this TTY as process' TTY.\n");
-	printf("  -r timespec: set sleeping time between respawn attempts (default: 1s).\n");
+	printf("  -T TTY: open this TTY as process' TTY.\n");
+	printf("  -t timespec: set sleeping time between respawn attempts (default: 1s).\n");
 	printf("  -n tries: set amount of respawn attempts (default is infinite).\n");
+	printf("  -e exitcode: stop respawning once this exitcode was received from target.\n");
 	printf("  -f: do not daemonise (always stay in foreground).\n");
 	printf("  -v: if going to background, tell the pid of waiter.\n");
 	printf("  -vv: also tell pid of each process going to be started.\n\n");
@@ -132,20 +133,21 @@ int main(int argc, char **argv)
 {
 	sigset_t set;
 	pid_t x, y;
-	int fd, c, tellpid = 0, no_daemon = 0;
+	int fd, c, tellpid = 0, no_daemon = 0, do_exitcode_check = 0, exitcode_good = 0;
 	char *stoi;
 
 	opterr = 0;
-	while ((c = getopt(argc, argv, "t:r:n:fv")) != -1) {
+	while ((c = getopt(argc, argv, "T:t:n:fve:")) != -1) {
 		switch (c) {
-			case 't': tty_path = optarg; break;
-			case 'r':
+			case 'T': tty_path = optarg; break;
+			case 't':
 				respawn_time = nanotime_prefixed(optarg, &stoi);
 				if (!str_empty(stoi)) usage();
 				break;
 			case 'n': respawn_tries = (size_t)atol(optarg); break;
 			case 'f': no_daemon = 1; tty_path = ttyname(0); break;
 			case 'v': tellpid++; break;
+			case 'e': do_exitcode_check = 1; exitcode_good = atoi(optarg); break;
 			default: usage(); break;
 		}
 	}
@@ -179,13 +181,18 @@ int main(int argc, char **argv)
 	}
 
 	while (1) {
+		int ret = 0;
+
 		if ((x = fork())) {
 			if (tellpid > 1) no_daemon ? printf("%ld\n", (long)x) : fprintf(stderr, "%ld\n", (long)x);
 			while (1) {
-				y = waitpid(x, NULL, 0);
+				y = waitpid(x, do_exitcode_check ? &ret : NULL, 0);
 				if (y == x) break;
 				if (y == -1 && errno != EINTR) break;
 			}
+			if (do_exitcode_check
+			&& WIFEXITED(ret)
+			&& WEXITSTATUS(ret) == exitcode_good) break;
 		}
 		else {
 			if (setsid() == -1) return 2;
