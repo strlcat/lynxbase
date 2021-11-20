@@ -28,15 +28,6 @@
 
 static char *progname = NULL;
 
-static char *nicaliases[] = {
-	"8139,rtl8139 00:20:18:00:00:00.24|00:4f:49:00:00:00.24|00:60:52:00:00:00.24"
-		"|52:54:00:00:00:00.16|00:e0:52:00:00:00.24",
-	"e1000e 00:30:48:00:00:00.24",
-	"skge 00:21:91:00:00:00.24",
-	"dlink,d-link 00:22:b0:00:00:00.24",
-	NULL
-};
-
 static void usage(void)
 {
 	fprintf(stdout, "usage: %s [-46m] [-u] [address]\n", progname);
@@ -72,7 +63,7 @@ static void usage(void)
 
 static unsigned int randrange(unsigned int s, unsigned int d)
 {
-	unsigned int c;
+	unsigned int c = 0;
 	int f = -1;
 	struct timeval t; memset(&t, 0, sizeof t);
 
@@ -183,7 +174,7 @@ static char *genrndmac(const char *addr)
 	unsigned char mac[6] = {0}; int prefix = 0; unsigned char c = 0;
 	char tmpaddr[MAC_ADDRSTRLEN] = {0};
 	char *s = NULL; const char *d = NULL;
-	int i;
+	unsigned i;
 	static char ret[MAC_ADDRSTRLEN] = {0};
 
 	s = strchr(addr, '.');
@@ -196,7 +187,7 @@ static char *genrndmac(const char *addr)
 	d = addr;
 	xstrlcpy(tmpaddr, d, s - d);
 
-	if (sscanf(tmpaddr, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx%c",
+	if (sscanf(tmpaddr, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx%u",
 		&mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5], &i) != 6)
 		return "\0Invalid MAC address";
 
@@ -262,48 +253,6 @@ _fail:
 	return -1;
 }
 
-static char *rndmacbyalias(const char *name)
-{
-	int i, x = 0, rnd;
-	const char *s, *d, *t;
-	char tmp[128] = {0}, nname[128] = {0};
-
-	for (i = 0; nicaliases[i]; i++) {
-		memset(nname, 0, sizeof(nname));
-		s = strchr(nicaliases[i], ' ');
-		if (!s) return "\0Invalid alias";
-		xstrlcpy(nname, nicaliases[i], s-nicaliases[i]);
-		t = nname-1;
-		do {
-			memset(tmp, 0, sizeof(tmp));
-			t++;
-			d = strchr(t, ',');
-			xstrlcpy(tmp, t, d ? d-t : sizeof(tmp));
-			if (strncmp(tmp, name, sizeof(tmp)-1) == 0) {
-				s = strchr(nicaliases[i], ' ');
-				do {
-					s++;
-					x++;
-				} while (s = strchr(s, '|'));
-				rnd = randrange(0, x);
-				x = 0;
-				s = strchr(nicaliases[i], ' ');
-				do {
-					memset(tmp, 0, sizeof(tmp));
-					s++;
-					d = strchr(s, '|');
-					xstrlcpy(tmp, s, d ? d-s : sizeof(tmp)); x++;
-				} while ((s = strchr(s, '|')) && (x < rnd));
-				goto _gen;
-			}
-		} while (t = strchr(t, ','));
-		if (nicaliases[i+1] == NULL) return "\0No such alias";
-	}
-
-_gen:
-	return genrndmac(tmp);
-}
-
 static int whataddr(const char *addr)
 {
 	if (strchr(addr, ':') && strchr(addr, '/')) // 2001:db8::/32
@@ -334,7 +283,7 @@ int main(int argc, char **argv)
 	nulladdrs[ADDR_IPV4] = "0.0.0.0/0";
 	nulladdrs[ADDR_MAC] = "0:0:0:0:0:0.0";
 
-	char c = 0;
+	int c = 0;
 	int idx = 0;
 	opterr = 0;
 
@@ -368,8 +317,7 @@ int main(int argc, char **argv)
 			break;
 		case ADDR_IPV4: t = genrndipv4(addr); break;
 		case ADDR_MAC:
-			if (whataddr(addr) == ADDR_INVAL) t = rndmacbyalias(addr);
-			else t = genrndmac(addr);
+			t = genrndmac(addr);
 			break;
 		case ADDR_INVAL: default: usage(); break;
 	}
