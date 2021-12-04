@@ -1,0 +1,6 @@
+*
+
+!.git*
+!*.c
+!*.h
+!Makefile
