@@ -9,7 +9,8 @@ all: $(PROGS)
 	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
 install: $(PROGS)
-	cp -ai $(PROGS) $(PREFIX)/bin
+	install -d $(DESTDIR)$(PREFIX)/bin
+	install -m0755 $^ $(DESTDIR)$(PREFIX)/bin
 
 clean:
 	rm -f $(PROGS)
