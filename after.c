@@ -128,6 +128,11 @@ int main(int argc, char **argv)
 	argc -= optind+1;
 	argv += optind+1;
 	if (argc < 1) usage();
+	if (!strcmp(argv[0], "--")) {
+		argc -= 1;
+		argv += 1;
+		if (argc < 1) usage();
+	}
 
 	if (!no_daemon) do_daemonise(tellpid);
 	nanosleep(&after_that_time_tsp, NULL);
