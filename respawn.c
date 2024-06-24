@@ -26,7 +26,7 @@ static size_t respawn_tries = TRIES_INFINITE;
 
 static void usage(void)
 {
-	printf("usage: respawn [-T TTY] [-t timespec] [-n tries] [-e [!]exitcode] [-fv[v]] cmdline ...\n");
+	printf("usage: respawn [-T TTY] [-t timespec] [-n tries] [-e [!]exitcode] [-fNv[v]] cmdline ...\n");
 	printf("Run cmdline and watch it. When process exits, restart it.\n\n");
 	printf("  -T TTY: open this TTY as process' TTY.\n");
 	printf("  -t timespec: set sleeping time between respawn attempts (default: 1s).\n");
@@ -34,6 +34,7 @@ static void usage(void)
 	printf("  -e [!]exitcode: stop respawning once this exitcode was received from target.\n");
 	printf("    '!' specified in front of exitcode will negate the match.\n");
 	printf("  -f: do not daemonise (always stay in foreground).\n");
+	printf("  -N: dont run cmdline immediately, sleep first.\n");
 	printf("  -v: if going to background, tell the pid of waiter.\n");
 	printf("  -vv: also tell pid of each process going to be started.\n\n");
 	exit(1);
@@ -130,15 +131,17 @@ static void signal_handler(int sig)
 	}
 }
 
+static int tellpid, no_daemon, do_exitcode_check, exitcode_good, exitcode_not, no_first_run;
+
 int main(int argc, char **argv)
 {
 	sigset_t set;
 	pid_t x, y;
-	int fd, c, tellpid = 0, no_daemon = 0, do_exitcode_check = 0, exitcode_good = 0, exitcode_not = 0;
+	int fd, c;
 	char *stoi;
 
 	opterr = 0;
-	while ((c = getopt(argc, argv, "T:t:n:fve:")) != -1) {
+	while ((c = getopt(argc, argv, "T:t:n:Nfve:")) != -1) {
 		switch (c) {
 			case 'T': tty_path = optarg; break;
 			case 't':
@@ -146,6 +149,7 @@ int main(int argc, char **argv)
 				if (!str_empty(stoi)) usage();
 				break;
 			case 'n': respawn_tries = (size_t)atol(optarg); break;
+			case 'N': no_first_run = 1; break;
 			case 'f': no_daemon = 1; tty_path = ttyname(0); break;
 			case 'v': tellpid++; break;
 			case 'e':
@@ -191,6 +195,11 @@ int main(int argc, char **argv)
 	while (1) {
 		int ret = 0;
 
+		if (no_first_run) {
+			no_first_run = 0;
+			goto _skip1;
+		}
+
 		if ((x = fork())) {
 			if (tellpid > 1) no_daemon ? printf("%ld\n", (long)x) : fprintf(stderr, "%ld\n", (long)x);
 			while (1) {
@@ -217,7 +226,7 @@ int main(int argc, char **argv)
 
 		if (respawn_tries && respawn_tries != TRIES_INFINITE) respawn_tries--;
 		if (respawn_tries == 0) break;
-		nanosleep(&respawn_time_tsp, NULL);
+_skip1:		nanosleep(&respawn_time_tsp, NULL);
 	}
 
 	return 0;
