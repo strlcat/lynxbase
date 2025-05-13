@@ -45,9 +45,9 @@ int main(int argc, char **argv)
 	while ((c = getopt(argc, argv, "e:u:p:")) != -1) {
 		switch (c) {
 			case 'e':
-				senv = realloc(senv, sizeof(char *) + senvsz + 1);
+				senv = realloc(senv, sizeof(char *) * (senvsz + 1));
 				if (!senv) return errno;
-				sarg = realloc(sarg, sizeof(char *) + senvsz + 1);
+				sarg = realloc(sarg, sizeof(char *) * (senvsz + 1));
 				senv[senvsz] = strdup(optarg);
 				if (!senv[senvsz]) return errno;
 				sarg[senvsz] = NULL;
@@ -57,9 +57,9 @@ int main(int argc, char **argv)
 			case 'p':
 				s = getenv(optarg);
 				if (s) {
-					senv = realloc(senv, sizeof(char *) + senvsz + 1);
+					senv = realloc(senv, sizeof(char *) * (senvsz + 1));
 					if (!senv) return errno;
-					sarg = realloc(sarg, sizeof(char *) + senvsz + 1);
+					sarg = realloc(sarg, sizeof(char *) * (senvsz + 1));
 					senv[senvsz] = strdup(optarg);
 					if (!senv[senvsz]) return errno;
 					sarg[senvsz] = strdup(s);
