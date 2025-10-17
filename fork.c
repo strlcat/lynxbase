@@ -1,5 +1,5 @@
 /*
- *	fork(1) or lh(1) - program daemonizer
+ *	fork(1) - program daemonizer
  *
  *	Usage: fork program [options]
  *
@@ -7,8 +7,6 @@
  *	immediately if program executed successfully.
  *	Returns 127 or 126 if ENOENT (127), or other error (126) occured.
  */
-
-#define _POSIX_SOURCE
 
 #include <stdio.h>
 #include <unistd.h>
