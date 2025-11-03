@@ -10,10 +10,33 @@ static void usage(void)
 	exit(1);
 }
 
+static void strtoi(char *s, unsigned x)
+{
+	size_t y = 0, z;
+	char t[12];
+
+	memset(s, 0, sizeof(t));
+	if (x == 0) {
+		s[0] = '0';
+		return;
+	}
+	while (x) {
+		t[y] = (x % 10) + '0'; y++;
+		x /= 10;
+	}
+	z = 0;
+	while (y) {
+		s[z] = t[y-1];
+		z++; y--;
+	}
+}
+
 int main(int argc, char **argv)
 {
 	int c;
 	char *s, *home, *shell, *uid, *user, *term;
+	uid_t myuid;
+	char t[12];
 	char **senv, **sarg;
 	size_t x, senvsz;
 
@@ -25,19 +48,19 @@ int main(int argc, char **argv)
 
 	s = getenv("HOME");
 	if (s) home = strdup(s);
-	if (!home) home = "/";
+	if (!home) home = strdup("/");
 	s = getenv("SHELL");
 	if (s) shell = strdup(s);
-	if (!shell) shell = "/bin/sh";
-	s = getenv("UID");
-	if (s) uid = strdup(s);
-	if (!uid) uid = "0";
+	if (!shell) shell = strdup("/bin/sh");
+	myuid = getuid();
+	strtoi(&t[0], (unsigned)myuid);
+	uid = strdup(t);
 	s = getenv("USER");
 	if (s) user = strdup(s);
-	if (!user) user = "root";
+	if (!user) user = strdup("root");
 	s = getenv("TERM");
 	if (s) term = getenv("TERM");
-	if (!term) term = "vt100";
+	if (!term) term = strdup("vt100");
 
 	opterr = 0;
 	optind = 1;
