@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <pwd.h>
 
 static void usage(void)
 {
@@ -31,6 +32,16 @@ static void strtoi(char *s, unsigned x)
 	}
 }
 
+static char *namebyuid(uid_t uid)
+{
+	struct passwd *p;
+	int err;
+
+	p = getpwuid(uid);
+	if (p) return strdup(p->pw_name);
+	else return NULL;
+}
+
 int main(int argc, char **argv)
 {
 	int c;
@@ -47,20 +58,24 @@ int main(int argc, char **argv)
 	senvsz = 0;
 
 	s = getenv("HOME");
-	if (s) home = strdup(s);
-	if (!home) home = strdup("/");
+	if (s) home = s;
+	if (!home) home = "/";
+
 	s = getenv("SHELL");
-	if (s) shell = strdup(s);
-	if (!shell) shell = strdup("/bin/sh");
+	if (s) shell = s;
+	if (!shell) shell = "/bin/sh";
+
 	myuid = getuid();
 	strtoi(&t[0], (unsigned)myuid);
-	uid = strdup(t);
-	s = getenv("USER");
-	if (s) user = strdup(s);
-	if (!user) user = strdup("root");
+	uid = t;
+
+	s = namebyuid(myuid);
+	if (s) user = s;
+	if (!user) user = "nobody";
+
 	s = getenv("TERM");
 	if (s) term = getenv("TERM");
-	if (!term) term = strdup("vt100");
+	if (!term) term = "vt100";
 
 	opterr = 0;
 	optind = 1;
