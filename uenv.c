@@ -71,7 +71,7 @@ int main(int argc, char **argv)
 
 	s = namebyuid(myuid);
 	if (s) user = s;
-	if (!user) user = "nobody";
+	if (!user) user = t;
 
 	s = getenv("TERM");
 	if (s) term = getenv("TERM");
