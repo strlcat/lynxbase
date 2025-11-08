@@ -3,4 +3,5 @@
 !.git*
 !*.c
 !*.h
+!LICENSE
 !Makefile
