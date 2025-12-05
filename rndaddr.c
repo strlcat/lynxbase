@@ -30,14 +30,15 @@ static char *progname = NULL;
 
 static void usage(void)
 {
-	fprintf(stdout, "usage: %s [-46m] [-u] [address]\n", progname);
+	fprintf(stdout, "usage: %s [-46m] [-uz] [address]\n", progname);
 	fprintf(stdout, "Random ipv4/ipv6/MAC address generator\n\n");
 	fprintf(stdout, "Options:\n");
 	fprintf(stdout, "  -4: generate ipv4 address\n");
 	fprintf(stdout, "  -6: generate ipv6 address\n");
 	fprintf(stdout, "  -m: generate MAC address\n");
 	fprintf(stdout, " IPv6 options:\n");
-	fprintf(stdout, "  -u: embed eui64 (MAC in ipv6) into resulting ipv6 address\n\n");
+	fprintf(stdout, "  -u: embed eui64 (MAC in ipv6) into resulting ipv6 address\n");
+	fprintf(stdout, "  -z: ensure there are no zero nibbles in generated address\n\n");
 	fprintf(stdout, "Format of input address:\n");
 	fprintf(stdout, "  ipv4: x.x.x.x/y, where x = [0-255] and y = [0-32]\n");
 	fprintf(stdout, "  ipv6: x:x:x:x:x:x:x:x/y, where x = [0-ffff] and y = [0-128]\n");
@@ -88,12 +89,20 @@ _norand:
 	return c;
 }
 
-static int getrandc(void)
+static int getrandc(int want_full)
 {
-	return randrange(0, 0xff);
+	int res;
+
+_nx:	res = randrange(0, 0xff);
+	if (!want_full) return res;
+	else {
+		if ((res >> 4 & 0xf) && (res & 0xf)) return res;
+		else goto _nx;
+	}
+	return res;
 }
 
-static char *genrndipv6(const char *addr)
+static char *genrndipv6(const char *addr, int want_full)
 {
 	unsigned char addr6[16] = {0}; int prefix = 0; unsigned char c = 0;
 	char tmpaddr[INET6_ADDRSTRLEN] = {0};
@@ -113,8 +122,8 @@ static char *genrndipv6(const char *addr)
 	if (inet_pton(AF_INET6, tmpaddr, addr6) != 1) return "\0Invalid IPv6 address";
 
 	if ((128 - prefix) % 8) {
-		for (i = (prefix/8) + 1; i < 16; i++) addr6[i] = getrandc();
-		c = getrandc();
+		for (i = (prefix/8) + 1; i < 16; i++) addr6[i] = getrandc(want_full);
+		c = getrandc(want_full);
 		for (i = 0; i < (128 - prefix) % 8; i++) {
 			if (c & (1 << i))
 				addr6[prefix/8] |= (1 << i);
@@ -122,8 +131,9 @@ static char *genrndipv6(const char *addr)
 				addr6[prefix/8] &= ~(1 << i);
 		}
 	}
-	else
-		for (i = (prefix/8); i < 16; i++) addr6[i] = getrandc();
+	else {
+		for (i = (prefix/8); i < 16; i++) addr6[i] = getrandc(want_full);
+	}
 
 	if (inet_ntop(AF_INET6, addr6, ret, INET6_ADDRSTRLEN) == NULL)
 		return "\0IPv6 conversion failed";
@@ -151,8 +161,8 @@ static char *genrndipv4(const char *addr)
 	if (inet_pton(AF_INET, tmpaddr, addr4) != 1) return "\0Invalid IPv4 address";
 
 	if ((32 - prefix) % 8) {
-		for (i = (prefix/8) + 1; i < 4; i++) addr4[i] = getrandc();
-		c = getrandc();
+		for (i = (prefix/8) + 1; i < 4; i++) addr4[i] = getrandc(0);
+		c = getrandc(0);
 		for (i = 0; i < (32 - prefix) % 8; i++) {
 			if (c & (1 << i))
 				addr4[prefix/8] |= (1 << i);
@@ -160,8 +170,9 @@ static char *genrndipv4(const char *addr)
 				addr4[prefix/8] &= ~(1 << i);
 		}
 	}
-	else
-		for (i = (prefix/8); i < 4; i++) addr4[i] = getrandc();
+	else {
+		for (i = (prefix/8); i < 4; i++) addr4[i] = getrandc(0);
+	}
 
 	if (inet_ntop(AF_INET, addr4, ret, INET_ADDRSTRLEN) == NULL)
 		return "\0IPv4 conversion failed";
@@ -192,8 +203,8 @@ static char *genrndmac(const char *addr)
 		return "\0Invalid MAC address";
 
 	if ((48 - prefix) % 8) {
-		for (i = (prefix/8) + 1; i < 6; i++) mac[i] = getrandc();
-		c = getrandc();
+		for (i = (prefix/8) + 1; i < 6; i++) mac[i] = getrandc(0);
+		c = getrandc(0);
 		for (i = 0; i < (48 - prefix) % 8; i++) {
 			if (c & (1 << i))
 				mac[prefix/8] |= (1 << i);
@@ -201,8 +212,9 @@ static char *genrndmac(const char *addr)
 				mac[prefix/8] &= ~(1 << i);
 		}
 	}
-	else
-		for (i = (prefix/8); i < 6; i++) mac[i] = getrandc();
+	else {
+		for (i = (prefix/8); i < 6; i++) mac[i] = getrandc(0);
+	}
 
 	if (prefix < 8) {
 		if (mac[0] & (1 << 0))
@@ -275,7 +287,10 @@ int main(int argc, char **argv)
 {
 	progname = basename(argv[0]);
 	const char *addr = NULL;
-	char *t = NULL; int type = 0; int eui64 = 0;
+	char *t = NULL;
+	int type = 0;
+	int eui64 = 0;
+	int nzero = 0;
 
 	const char *nulladdrs[4] = {0};
 	nulladdrs[ADDR_INVAL] = NULL;
@@ -287,12 +302,13 @@ int main(int argc, char **argv)
 	int idx = 0;
 	opterr = 0;
 
-	while ((c = getopt(argc, argv, "46muM:")) != -1) {
+	while ((c = getopt(argc, argv, "46muzM:")) != -1) {
 		switch (c) {
 			case '6': type = ADDR_IPV6; break;
 			case '4': type = ADDR_IPV4; break;
 			case 'm': type = ADDR_MAC; break;
 			case 'u': eui64 = 1; break;
+			case 'z': nzero = 1; break;
 			case 'M': type = ADDR_MAC; addr = optarg; break;
 			default: usage(); break;
 		}
@@ -311,7 +327,7 @@ int main(int argc, char **argv)
 
 	switch (type) {
 		case ADDR_IPV6:
-			t = genrndipv6(addr);
+			t = genrndipv6(addr, nzero);
 			if (validaddr(t) && eui64 && getaddrprefix(addr, ADDR_IPV6) <= 88)
 				t = eui64addr(t);
 			break;
