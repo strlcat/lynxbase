@@ -11,10 +11,12 @@
 
 #include "xstrlcpy.c"
 
+#define CIDR_ADDRSTRLEN (INET6_ADDRSTRLEN + 4)
+
 struct netaddr {
 	int type;
 	char addr[16];
-	char saddr[INET6_ADDRSTRLEN];
+	char saddr[CIDR_ADDRSTRLEN];
 	int pfx, pmax;
 };
 
@@ -42,6 +44,7 @@ static int filladdr(const char *addr, struct netaddr *na)
 {
 	int type;
 	char *s;
+	int r;
 
 	type = addrtype(addr);
 	if (!type) return 0;
@@ -50,11 +53,11 @@ static int filladdr(const char *addr, struct netaddr *na)
 	if (na->type == AF_INET) na->pmax = 32;
 	else if (na->type == AF_INET6) na->pmax = 128;
 
-	xstrlcpy(na->saddr, addr, INET6_ADDRSTRLEN);
+	if (xstrlcpy(na->saddr, addr, CIDR_ADDRSTRLEN) >= CIDR_ADDRSTRLEN) return 0;
 
 	s = strchr(na->saddr, '/');
-	if (s && *(s+1)) {
-		*s = 0; s++;
+	if (s && s[1]) {
+		s[0] = 0; s++;
 		na->pfx = atoi(s);
 		if (na->pfx < 0) return 0;
 		else if (type == AF_INET && na->pfx > 32) return 0;
@@ -65,9 +68,13 @@ static int filladdr(const char *addr, struct netaddr *na)
 		else na->pfx = 128;
 	}
 
-	if (inet_pton(type, na->saddr, na->addr) < 1) return 0;
+	if (inet_pton(type, na->saddr, na->addr) < 1) r = 0;
+	else r = 1;
 
-	return 1;
+	if (s) {
+		s--; s[0] = '/';
+	}
+	return r;
 }
 
 static int matchaddr(struct netaddr *n, struct netaddr *a)

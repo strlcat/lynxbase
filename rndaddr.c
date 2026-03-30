@@ -20,6 +20,7 @@
 #include "xstrlcpy.c"
 
 #define MAC_ADDRSTRLEN	18
+#define CIDR_ADDRSTRLEN (INET6_ADDRSTRLEN + 4)
 
 #define ADDR_INVAL	0
 #define ADDR_IPV6	1
@@ -105,10 +106,10 @@ _nx:	res = randrange(0, 0xff);
 static char *genrndipv6(const char *addr, int want_full)
 {
 	unsigned char addr6[16] = {0}; int prefix = 0; unsigned char c = 0;
-	char tmpaddr[INET6_ADDRSTRLEN] = {0};
+	char tmpaddr[CIDR_ADDRSTRLEN] = {0};
 	int i;
 	char *s = NULL; const char *d = NULL;
-	static char ret[INET6_ADDRSTRLEN] = {0};
+	static char ret[CIDR_ADDRSTRLEN] = {0};
 
 	s = strchr(addr, '/');
 	if (s && s[1]) s++;
@@ -135,7 +136,7 @@ static char *genrndipv6(const char *addr, int want_full)
 		for (i = (prefix/8); i < 16; i++) addr6[i] = getrandc(want_full);
 	}
 
-	if (inet_ntop(AF_INET6, addr6, ret, INET6_ADDRSTRLEN) == NULL)
+	if (inet_ntop(AF_INET6, addr6, ret, CIDR_ADDRSTRLEN) == NULL)
 		return "\0IPv6 conversion failed";
 
 	return ret;
@@ -232,7 +233,7 @@ static char *genrndmac(const char *addr)
 static char *eui64addr(const char *addr)
 {
 	unsigned char addr6[16] = {0};
-	static char ret[INET6_ADDRSTRLEN] = {0};
+	static char ret[CIDR_ADDRSTRLEN] = {0};
 
 	if (inet_pton(AF_INET6, addr, addr6) != 1) return "\0Invalid IPv6 address";
 
@@ -241,7 +242,7 @@ static char *eui64addr(const char *addr)
 	if (addr6[8] & (1 << 0))
 		addr6[8] ^= 1 << 0;
 
-	if (inet_ntop(AF_INET6, addr6, ret, INET6_ADDRSTRLEN) == NULL)
+	if (inet_ntop(AF_INET6, addr6, ret, CIDR_ADDRSTRLEN) == NULL)
 		return "\0IPv6 conversion failed";
 
 	return ret;
