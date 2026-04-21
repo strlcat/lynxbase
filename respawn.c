@@ -23,6 +23,7 @@ static char *tty_path;
 static rsp_nsecs respawn_time = DTONSECS(1.0);
 static struct timespec respawn_time_tsp;
 static size_t respawn_tries = TRIES_INFINITE;
+static pid_t cldpid = -1;
 
 static void usage(void)
 {
@@ -126,7 +127,7 @@ static void signal_handler(int sig)
 {
 	switch (sig) {
 		case SIGTERM:
-		case SIGINT: exit(0); break;
+		case SIGINT: if (cldpid != -1) killpg(cldpid, sig); exit(sig); break;
 		case SIGCHLD: while (waitpid(0, NULL, WNOHANG) >= 0); break;
 	}
 }
@@ -136,7 +137,6 @@ static int tellpid, no_daemon, do_exitcode_check, exitcode_good, exitcode_not, n
 int main(int argc, char **argv)
 {
 	sigset_t set;
-	pid_t x, y;
 	int fd, c;
 	char *stoi;
 
@@ -194,19 +194,21 @@ int main(int argc, char **argv)
 
 	while (1) {
 		int ret = 0;
+		pid_t x;
 
 		if (no_first_run) {
 			no_first_run = 0;
 			goto _skip1;
 		}
 
-		if ((x = fork())) {
-			if (tellpid > 1) no_daemon ? printf("%ld\n", (long)x) : fprintf(stderr, "%ld\n", (long)x);
+		if ((cldpid = fork())) {
+			if (tellpid > 1) no_daemon ? printf("%ld\n", (long)cldpid) : fprintf(stderr, "%ld\n", (long)cldpid);
 			while (1) {
-				y = waitpid(x, do_exitcode_check ? &ret : NULL, 0);
-				if (y == x) break;
-				if (y == -1 && errno != EINTR) break;
+				x = waitpid(cldpid, do_exitcode_check ? &ret : NULL, 0);
+				if (x == cldpid) break;
+				if (x == -1 && errno != EINTR) break;
 			}
+			cldpid = -1;
 			if (do_exitcode_check) {
 				if (WIFEXITED(ret)
 				&& exitcode_not ? (WEXITSTATUS(ret) != exitcode_good) : (WEXITSTATUS(ret) == exitcode_good)) break;
@@ -223,6 +225,8 @@ int main(int argc, char **argv)
 			execvp(*argv, argv);
 			return 127;
 		}
+
+		cldpid = -1;
 
 		if (respawn_tries && respawn_tries != TRIES_INFINITE) respawn_tries--;
 		if (respawn_tries == 0) break;
